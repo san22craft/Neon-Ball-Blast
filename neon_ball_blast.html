@@ -1,0 +1,1233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Ball Blast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050510;
+            font-family: 'Orbitron', sans-serif;
+            touch-action: none; /* Prevent scroll on mobile */
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        #ui-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none; /* Let touches pass through to canvas when playing */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .pointer-events-auto {
+            pointer-events: auto;
+        }
+        .glass-panel {
+            background: rgba(10, 10, 25, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        }
+        .btn-neon {
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+        }
+        .btn-neon:hover {
+            box-shadow: 0 0 15px currentColor;
+            transform: scale(1.05);
+        }
+        .btn-neon:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer">
+        
+        <!-- Main Menu -->
+        <div id="main-menu" class="glass-panel p-8 rounded-2xl text-center pointer-events-auto flex flex-col items-center gap-6">
+            <h1 class="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600 drop-shadow-[0_0_10px_rgba(0,255,255,0.8)]">NEON BLAST</h1>
+            <p class="text-gray-300 text-sm max-w-xs">Arrastra para mover el cañón. Sobrevive a las oleadas y mejora tu nave.</p>
+            <button id="start-btn" class="btn-neon text-cyan-400 border-2 border-cyan-400 px-8 py-3 rounded-full font-bold tracking-wider uppercase mt-4">
+                Jugar
+            </button>
+        </div>
+
+        <!-- Upgrade Menu -->
+        <div id="upgrade-menu" class="glass-panel p-6 rounded-2xl text-center pointer-events-auto flex flex-col items-center gap-6 hidden w-11/12 max-w-md">
+            <h2 class="text-3xl font-bold text-fuchsia-400 drop-shadow-[0_0_8px_rgba(217,70,239,0.8)]">¡OLEADA COMPLETADA!</h2>
+            <p class="text-sm text-gray-300 mb-2">Elige una mejora para continuar:</p>
+            
+            <div class="grid grid-cols-1 gap-4 w-full">
+                <button class="upgrade-btn btn-neon text-green-400 border border-green-400 bg-green-900/20 p-4 rounded-xl flex items-center justify-between" data-type="fireRate">
+                    <span class="font-bold">VELOCIDAD DE DISPARO</span>
+                    <span class="text-2xl">⚡</span>
+                </button>
+                <button class="upgrade-btn btn-neon text-yellow-400 border border-yellow-400 bg-yellow-900/20 p-4 rounded-xl flex items-center justify-between" data-type="multishot">
+                    <span class="font-bold">PROYECTILES MULTIPLES</span>
+                    <span class="text-2xl">🔱</span>
+                </button>
+                <button class="upgrade-btn btn-neon text-rose-400 border border-rose-400 bg-rose-900/20 p-4 rounded-xl flex items-center justify-between" data-type="damage">
+                    <span class="font-bold">DAÑO DE IMPACTO</span>
+                    <span class="text-2xl">💥</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Sandbox (Modo Dios Oculto) -->
+        <div id="sandbox-menu" class="glass-panel p-6 rounded-2xl text-center pointer-events-auto flex flex-col items-center gap-6 hidden w-11/12 max-w-md">
+            <h2 class="text-3xl font-bold text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.8)]">⚙️ MODO DIOS</h2>
+            <p class="text-sm text-gray-300 mb-2">Presiona P para abrir/cerrar</p>
+            
+            <div class="flex items-center gap-4 w-full">
+                <span class="text-white font-bold">Ir a oleada:</span>
+                <input type="number" id="sandbox-wave-input" class="bg-black/80 border border-red-500 text-white p-2 rounded flex-1 text-center font-bold text-xl" min="1" value="1">
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 w-full">
+                <div class="btn-neon text-green-400 border border-green-400 bg-green-900/20 p-3 rounded-xl flex items-center justify-between">
+                    <span class="font-bold">VEL. DISPARO (Nvl):</span>
+                    <input type="number" id="sb-input-fire" class="bg-black/80 border border-green-500 text-green-400 p-2 rounded w-20 text-center font-bold text-xl outline-none" min="0" value="0">
+                </div>
+                <div class="btn-neon text-yellow-400 border border-yellow-400 bg-yellow-900/20 p-3 rounded-xl flex items-center justify-between">
+                    <span class="font-bold">PROYECTILES (Nvl):</span>
+                    <input type="number" id="sb-input-multi" class="bg-black/80 border border-yellow-500 text-yellow-400 p-2 rounded w-20 text-center font-bold text-xl outline-none" min="0" value="0">
+                </div>
+                <div class="btn-neon text-rose-400 border border-rose-400 bg-rose-900/20 p-3 rounded-xl flex items-center justify-between">
+                    <span class="font-bold">DAÑO (Nvl):</span>
+                    <input type="number" id="sb-input-dmg" class="bg-black/80 border border-rose-500 text-rose-400 p-2 rounded w-20 text-center font-bold text-xl outline-none" min="0" value="0">
+                </div>
+            </div>
+            
+            <button id="sandbox-done-btn" class="btn-neon text-white bg-red-600 border-2 border-red-400 px-8 py-3 rounded-full font-bold tracking-wider uppercase mt-2 cursor-pointer">
+                Aplicar y Jugar
+            </button>
+        </div>
+
+        <!-- Game Over -->
+        <div id="game-over" class="glass-panel p-8 rounded-2xl text-center pointer-events-auto flex flex-col items-center gap-6 hidden">
+            <h2 class="text-5xl font-black text-rose-500 drop-shadow-[0_0_15px_rgba(244,63,94,0.8)]">DESTRUIDO</h2>
+            <div class="text-xl">Oleada alcanzada: <span id="final-wave" class="font-bold text-cyan-400">1</span></div>
+            <button id="restart-btn" class="btn-neon text-rose-400 border-2 border-rose-400 px-8 py-3 rounded-full font-bold tracking-wider uppercase mt-4">
+                Reintentar
+            </button>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud" class="absolute top-4 left-4 right-4 flex justify-between items-start hidden">
+            <div class="bg-black/50 px-4 py-2 rounded-lg border border-cyan-500/30">
+                <span class="text-cyan-400 text-sm font-bold block">OLEADA</span>
+                <span id="hud-wave" class="text-2xl font-black">1</span>
+            </div>
+            <div class="bg-black/50 px-4 py-2 rounded-lg border border-fuchsia-500/30 text-right">
+                <span class="text-fuchsia-400 text-sm font-bold block">PUNTOS</span>
+                <span id="hud-score" class="text-2xl font-black">0</span>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+/**
+ * Game Engine & Logic
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// UI Elements
+const uiMainMenu = document.getElementById('main-menu');
+const uiUpgradeMenu = document.getElementById('upgrade-menu');
+const uiGameOver = document.getElementById('game-over');
+const uiHud = document.getElementById('hud');
+const btnStart = document.getElementById('start-btn');
+const btnRestart = document.getElementById('restart-btn');
+const btnUpgrades = document.querySelectorAll('.upgrade-btn');
+const hudWave = document.getElementById('hud-wave');
+const hudScore = document.getElementById('hud-score');
+const finalWave = document.getElementById('final-wave');
+
+// UI Elements Sandbox
+const uiSandbox = document.getElementById('sandbox-menu');
+const sbWaveInput = document.getElementById('sandbox-wave-input');
+const sbDoneBtn = document.getElementById('sandbox-done-btn');
+const sbInputFire = document.getElementById('sb-input-fire');
+const sbInputMulti = document.getElementById('sb-input-multi');
+const sbInputDmg = document.getElementById('sb-input-dmg');
+
+// Game State
+let GAME_STATE = 'MENU'; // MENU, PLAYING, UPGRADE, GAMEOVER, SANDBOX
+let lastTime = 0;
+let score = 0;
+let currentWave = 1;
+let upgradesRemaining = 0; // Añadido contador de mejoras
+
+// Dimensions
+let W, H;
+let player = null;
+
+// Manejar el tamaño de la ventana (para móviles y escritorio)
+function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+    if (player) {
+        player.y = H - 40; // Ajustar nave a la parte inferior
+    }
+}
+window.addEventListener('resize', resize);
+resize(); // Llamar inmediatamente para establecer W y H
+
+// Inicializar las estadísticas base del cañón/jugador
+player = {
+    x: W / 2,
+    y: H - 40,
+    targetX: W / 2,
+    width: 40,
+    height: 60,
+    color: '#00ffff',
+    damage: 1,
+    fireRate: 4,
+    multishot: 1,
+    lastShotTime: 0
+};
+
+// Arrays for entities
+let bullets = [];
+let balls = [];
+let particles = [];
+let powerUps = []; // Array para los power-ups
+let freezeTimer = 0; // Temporizador global para congelar
+let machineGunTimer = 0; // Temporizador global para la ráfaga x30
+
+// Configurations
+const GRAVITY = 18; // pixels per second squared (scaled by delta time)
+const COLORS = ['#f43f5e', '#a855f7', '#3b82f6', '#10b981', '#f59e0b'];
+
+class Bullet {
+    constructor(x, y, angle, damage) {
+        this.x = x;
+        this.y = y;
+        this.radius = 4;
+        this.speed = 800; // pixels per sec
+        this.vx = Math.sin(angle) * this.speed;
+        this.vy = -Math.cos(angle) * this.speed;
+        this.damage = damage;
+        this.color = '#fff';
+        this.markedForDeletion = false;
+    }
+    update(dt) {
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        if (this.y < -10 || this.x < -10 || this.x > W + 10) {
+            this.markedForDeletion = true;
+        }
+    }
+    draw(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#00ffff';
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+}
+
+class Ball {
+    constructor(x, y, radius, health, vx, bounceHeightStr) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.maxHealth = health;
+        this.health = health;
+        this.vx = vx;
+        this.vy = 0;
+        this.bounceHeightStr = bounceHeightStr; // Velocity jump when hitting floor
+        this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        this.markedForDeletion = false;
+        this.hitTimer = 0;
+    }
+    
+    update(dt) {
+        // Si el tiempo de congelación está activo, no aplica físicas
+        if (freezeTimer > 0) {
+            if(this.hitTimer > 0) this.hitTimer -= dt;
+            return;
+        }
+
+        // Apply Gravity
+        this.vy += GRAVITY * 40 * dt; 
+        
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+
+        // Wall collisions
+        if (this.x - this.radius <= 0) {
+            this.x = this.radius;
+            this.vx *= -1;
+        } else if (this.x + this.radius >= W) {
+            this.x = W - this.radius;
+            this.vx *= -1;
+        }
+
+        // Floor collision
+        if (this.y + this.radius >= H) {
+            this.y = H - this.radius;
+            this.vy = -this.bounceHeightStr; 
+        }
+
+        if(this.hitTimer > 0) this.hitTimer -= dt;
+    }
+    
+    draw(ctx) {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        
+        // Flash white if hit
+        if (this.hitTimer > 0) {
+            ctx.fillStyle = '#ffffff';
+        } else {
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = this.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+            ctx.stroke();
+        }
+        
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Draw Health
+        ctx.fillStyle = this.hitTimer > 0 ? '#000' : '#fff';
+        ctx.font = `bold ${Math.max(12, this.radius * 0.8)}px Orbitron`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.ceil(this.health), this.x, this.y);
+    }
+}
+
+// ----------------- BOSS (Meteorito Enfadado) -----------------
+class Boss extends Ball {
+    constructor(wave) {
+        super(W/2, 120, 80, wave * 100, 150, 0); 
+        this.isBoss = true;
+        this.wave = wave;
+        
+        // Nuevas propiedades para la IA
+        this.baseY = 120;
+        this.originalVx = 150 + (wave * 5); // Un poco más rápido cada oleada
+        this.vx = this.originalVx;
+        
+        this.state = 'MOVING'; // MOVING, CHARGING, DIVING, RECOVERING, RETURNING
+        this.attackTimer = 6 + Math.random() * 4; // Tiempo hasta el próximo ataque en picado
+        this.chargeTimer = 0;
+        
+        this.spitTimer = 2.0;
+        this.spitAnimTimer = 0; // Animación de la boca al escupir
+        this.isAngry = false; // Se activa al 50% de vida
+    }
+
+    update(dt) {
+        if(this.hitTimer > 0) this.hitTimer -= dt;
+        if(this.spitAnimTimer > 0) this.spitAnimTimer -= dt;
+
+        // Entra en "Fase de Cabreo" si su vida baja del 50%
+        if (!this.isAngry && this.health <= this.maxHealth * 0.5) {
+            this.isAngry = true;
+            this.originalVx *= 1.4; // 40% más rápido al moverse
+            if (this.state === 'MOVING') this.vx = Math.sign(this.vx) * this.originalVx;
+            createExplosion(this.x, this.y, '#ff0000', 50); // Gran explosión visual al cabrearse
+        }
+
+        // Si está congelado, no hace nada de esto
+        if (freezeTimer > 0) return;
+
+        // Máquina de estados del Boss
+        switch (this.state) {
+            case 'MOVING':
+                // Movimiento normal de lado a lado con un ligero balanceo vertical
+                this.x += this.vx * dt;
+                this.y = this.baseY + Math.sin(Date.now() / 400) * 15;
+
+                if (this.x - this.radius <= 0) { this.x = this.radius; this.vx = Math.abs(this.originalVx); }
+                if (this.x + this.radius >= W) { this.x = W - this.radius; this.vx = -Math.abs(this.originalVx); }
+                
+                // Temporizador para escupir pelotas
+                this.spitTimer -= dt;
+                if (this.spitTimer <= 0) {
+                    this.spit();
+                    // Si está enfadado, escupe muchísimo más rápido (un 50% menos de tiempo de espera)
+                    let baseSpit = Math.max(0.6, 2.5 - (this.wave * 0.05));
+                    this.spitTimer = this.isAngry ? baseSpit * 0.5 : baseSpit;
+                }
+
+                // Temporizador para el ataque de aplastamiento
+                this.attackTimer -= dt;
+                if (this.attackTimer <= 0) {
+                    this.state = 'CHARGING';
+                    this.chargeTimer = 1.2; // 1.2 segundos avisando antes de caer
+                }
+                break;
+
+            case 'CHARGING':
+                // Se queda quieto y vibra violentamente para avisar al jugador
+                this.x += (Math.random() - 0.5) * (this.isAngry ? 15 : 8);
+                this.y += (Math.random() - 0.5) * (this.isAngry ? 15 : 8);
+                
+                this.chargeTimer -= dt;
+                if (this.chargeTimer <= 0) {
+                    this.state = 'DIVING';
+                    this.vy = this.isAngry ? 1000 : 700; // Cae rapidísimo
+                }
+                break;
+
+            case 'DIVING':
+                // Cae en picado hacia el cañón
+                this.y += this.vy * dt;
+                if (this.y + this.radius >= H - 20) { // Golpea el suelo
+                    this.y = H - this.radius - 20;
+                    this.state = 'RECOVERING';
+                    this.chargeTimer = 0.5; // Se queda en el suelo medio segundo
+                    createExplosion(this.x, this.y + this.radius, '#ff8800', 40); // Polvo al chocar
+                }
+                break;
+
+            case 'RECOVERING':
+                this.chargeTimer -= dt;
+                if (this.chargeTimer <= 0) {
+                    this.state = 'RETURNING';
+                    this.vy = -300; // Sube más lento de lo que bajó
+                }
+                break;
+
+            case 'RETURNING':
+                this.y += this.vy * dt;
+                if (this.y <= this.baseY) { // Ha vuelto a su posición original
+                    this.y = this.baseY;
+                    this.state = 'MOVING';
+                    this.vx = Math.random() > 0.5 ? this.originalVx : -this.originalVx;
+                    // El siguiente ataque tardará más o menos dependiendo de si está enfadado
+                    this.attackTimer = (this.isAngry ? 3 : 5) + Math.random() * 4; 
+                }
+                break;
+        }
+    }
+
+    spit() {
+        this.spitAnimTimer = 0.3; // Activa la animación de la boca durante 0.3s
+        const hp = 10 + this.wave * 2;
+        const r = 30 + Math.random() * 20;
+        let b = new Ball(this.x, this.y + this.radius, r, hp, (Math.random()-0.5)*300, 600);
+        b.vy = 300; 
+        balls.push(b);
+    }
+
+    draw(ctx) {
+        // Colores cambian si está cabreado (rojo sangre) o normal (naranja/rojo oscuro)
+        const eyeColor = this.isAngry ? '#f00' : '#0f0';
+        const auraColor = this.isAngry ? '#ff0000' : '#ff4400';
+        const bodyDark = this.isAngry ? '#4a0000' : '#2a0804';
+        
+        // Aura pulsante
+        let pulse = 1 + Math.sin(Date.now() / (this.isAngry ? 80 : 150)) * 0.2;
+        if (this.state === 'CHARGING') pulse = 1.5; // Aura más grande al cargar el ataque
+        
+        ctx.shadowBlur = 30 * pulse;
+        ctx.shadowColor = auraColor;
+        
+        // Cuerpo base (degradado esférico 3D)
+        const grad = ctx.createRadialGradient(this.x - this.radius/3, this.y - this.radius/3, this.radius/10, this.x, this.y, this.radius);
+        grad.addColorStop(0, this.hitTimer > 0 ? '#fff' : (this.isAngry ? '#ff4444' : '#8b2010'));
+        grad.addColorStop(1, this.hitTimer > 0 ? '#fff' : bodyDark);
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = this.isAngry ? '#ff0000' : '#ff8800';
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Detalles (cráteres y rostro)
+        if (this.hitTimer <= 0) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            
+            // Cráteres
+            const craters = [
+                {x: -this.radius*0.4, y: -this.radius*0.3, r: this.radius*0.2},
+                {x: this.radius*0.5, y: -this.radius*0.1, r: this.radius*0.25},
+                {x: -this.radius*0.2, y: this.radius*0.5, r: this.radius*0.15},
+                {x: this.radius*0.3, y: this.radius*0.4, r: this.radius*0.1}
+            ];
+            
+            craters.forEach(c => {
+                ctx.beginPath();
+                ctx.arc(this.x + c.x, this.y + c.y, c.r, 0, Math.PI*2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(this.x + c.x, this.y + c.y, c.r, Math.PI, Math.PI*2); 
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // Ojos
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = eyeColor;
+            ctx.fillStyle = eyeColor;
+            
+            // Ojos más inclinados y furiosos si está cabreado
+            const eyeAngle = this.isAngry ? Math.PI/4 : Math.PI/6;
+            
+            ctx.beginPath();
+            ctx.ellipse(this.x - 25, this.y - 10, 12, 20, -eyeAngle, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(this.x + 25, this.y - 10, 12, 20, eyeAngle, 0, Math.PI*2);
+            ctx.fill();
+            
+            // Pupilas de reptil
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.ellipse(this.x - 25, this.y - 10, this.isAngry ? 2 : 4, 16, -eyeAngle, 0, Math.PI*2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.ellipse(this.x + 25, this.y - 10, this.isAngry ? 2 : 4, 16, eyeAngle, 0, Math.PI*2);
+            ctx.fill();
+
+            // Animación de la boca abierta al escupir o al cargar el ataque
+            if (this.spitAnimTimer > 0 || this.state === 'CHARGING') {
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                const mouthH = this.state === 'CHARGING' ? 25 : 15; // Boca más grande al cargar
+                ctx.ellipse(this.x, this.y + 35, 15, mouthH, 0, 0, Math.PI*2);
+                ctx.fill();
+                
+                // Brillo interno en la garganta
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = auraColor;
+                ctx.fillStyle = auraColor;
+                ctx.beginPath();
+                ctx.ellipse(this.x, this.y + 35, 8, mouthH - 5, 0, 0, Math.PI*2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        }
+
+        // Barra de vida
+        const barW = this.radius * 2.5;
+        const barH = 12;
+        const hpPercent = this.health / this.maxHealth;
+        
+        ctx.fillStyle = '#333';
+        ctx.fillRect(this.x - barW/2, this.y - this.radius - 30, barW, barH);
+        // Barra de vida cambia de color al 50%
+        ctx.fillStyle = this.isAngry ? '#f00' : '#0f0';
+        ctx.fillRect(this.x - barW/2, this.y - this.radius - 30, barW * hpPercent, barH);
+        
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(this.x - barW/2, this.y - this.radius - 30, barW, barH);
+    }
+}
+
+// ----------------- PELOTA MISTERIOSA -----------------
+class MysteryBall extends Ball {
+    constructor(x, y, radius, health, vx, bounce) {
+        super(x, y, radius, health, vx, bounce);
+        this.isMystery = true;
+        this.baseRadius = radius;
+        this.color = '#fff000';
+    }
+    
+    draw(ctx) {
+        const damageRatio = 1 - (this.health / this.maxHealth);
+        
+        // 1. Engordar de forma mucho más notable (crece hasta 2.5 veces su tamaño original)
+        this.radius = this.baseRadius + (this.baseRadius * 1.5 * damageRatio); 
+
+        // 2. Dibujar la base de la pelota
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        
+        if (this.hitTimer > 0) {
+            ctx.fillStyle = '#ffffff';
+        } else {
+            ctx.fillStyle = 'rgba(0,0,0,0.8)';
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = this.color;
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = this.color;
+            ctx.stroke();
+        }
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // 3. Efecto de agrietarse (grietas en zigzag más realistas)
+        if (damageRatio > 0.1) {
+            ctx.strokeStyle = this.hitTimer > 0 ? '#000' : '#fff000'; // La grieta brilla
+            ctx.lineWidth = 2 + (damageRatio * 4); // Las grietas se hacen más gruesas
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            // Grieta Principal (desde arriba)
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - this.radius);
+            ctx.lineTo(this.x - this.radius * 0.15, this.y - this.radius * 0.4);
+            ctx.lineTo(this.x + this.radius * 0.1, this.y - this.radius * 0.1);
+            if (damageRatio > 0.4) {
+                ctx.lineTo(this.x - this.radius * 0.2, this.y + this.radius * 0.3);
+            }
+            if (damageRatio > 0.7) {
+                ctx.lineTo(this.x + this.radius * 0.1, this.y + this.radius * 0.8);
+            }
+            ctx.stroke();
+
+            // Segunda grieta (desde la derecha)
+            if (damageRatio > 0.3) {
+                ctx.beginPath();
+                ctx.moveTo(this.x + this.radius, this.y - this.radius * 0.2);
+                ctx.lineTo(this.x + this.radius * 0.4, this.y - this.radius * 0.1);
+                ctx.lineTo(this.x + this.radius * 0.3, this.y + this.radius * 0.2);
+                if (damageRatio > 0.8) {
+                    ctx.lineTo(this.x + this.radius * 0.6, this.y + this.radius * 0.6);
+                }
+                ctx.stroke();
+            }
+
+            // Tercera grieta (desde la izquierda)
+            if (damageRatio > 0.6) {
+                ctx.beginPath();
+                ctx.moveTo(this.x - this.radius, this.y + this.radius * 0.1);
+                ctx.lineTo(this.x - this.radius * 0.5, this.y + this.radius * 0.3);
+                ctx.lineTo(this.x - this.radius * 0.3, this.y + this.radius * 0.2);
+                ctx.stroke();
+            }
+        }
+
+        // 4. Textos: '?' grande arriba y vida pequeña abajo
+        ctx.fillStyle = this.hitTimer > 0 ? '#000' : '#fff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Interrogación gigante arriba
+        const qSize = Math.max(20, this.radius * 0.8);
+        ctx.font = `bold ${qSize}px Orbitron`;
+        ctx.fillText('?', this.x, this.y - this.radius * 0.2);
+        
+        // Número de vida abajo
+        const hSize = Math.max(12, this.radius * 0.35);
+        ctx.font = `bold ${hSize}px Orbitron`;
+        ctx.fillText(Math.ceil(this.health), this.x, this.y + this.radius * 0.45);
+    }
+}
+
+// ----------------- POWER UPS -----------------
+const POWERUP_TYPES = ['FREEZE', 'SHATTER', 'MACHINEGUN'];
+class PowerUp {
+    constructor(x, y) {
+        this.x = x; this.y = y;
+        this.radius = 20;
+        this.vy = 300; // Cae mucho más rápido al inicio
+        this.type = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+        this.markedForDeletion = false;
+        this.lifeTimer = 8.0; // Desaparece tras 8 segundos en el suelo si no se recoge
+    }
+    
+    update(dt) {
+        // Aplicar gravedad progresiva para que caiga en picado
+        this.vy += GRAVITY * 40 * dt;
+        this.y += this.vy * dt;
+
+        // Colisión con el suelo (Efecto moneda rebotando)
+        if (this.y + this.radius >= H) {
+            this.y = H - this.radius;
+            this.vy *= -0.4; // Rebote perdiendo el 60% de la fuerza
+            
+            // Si el rebote es muy pequeño, se queda apoyado en el suelo
+            if (Math.abs(this.vy) < 40) {
+                this.vy = 0;
+            }
+        }
+
+        // Temporizador para desaparecer
+        this.lifeTimer -= dt;
+        if (this.lifeTimer <= 0) {
+            this.markedForDeletion = true;
+        }
+    }
+    
+    draw(ctx) {
+        // Efecto de parpadeo cuando está a punto de desaparecer (últimos 2 segundos)
+        if (this.lifeTimer < 2.0 && Math.floor(this.lifeTimer * 10) % 2 === 0) {
+            return; // Se salta el dibujado para hacer el parpadeo
+        }
+
+        ctx.fillStyle = '#0ff';
+        if (this.type === 'FREEZE') ctx.fillStyle = '#4488ff';
+        if (this.type === 'SHATTER') ctx.fillStyle = '#ffaa00';
+        if (this.type === 'MACHINEGUN') ctx.fillStyle = '#ff4444';
+        
+        ctx.shadowBlur = 15;
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '20px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        let icon = this.type === 'FREEZE' ? '❄' : (this.type === 'SHATTER' ? '⚡' : '🚀');
+        ctx.fillText(icon, this.x, this.y);
+    }
+}
+
+function dropPowerUp(x, y) {
+    powerUps.push(new PowerUp(x, y));
+}
+
+function activatePowerUp(type) {
+    if (type === 'FREEZE') freezeTimer = 4.0;
+    if (type === 'MACHINEGUN') machineGunTimer = 3.0;
+    if (type === 'SHATTER') {
+        createExplosion(W/2, H/2, '#00ffff', 50);
+        balls.forEach(b => {
+            if (!b.isBoss && !b.isMystery) {
+                b.health = 1;
+                b.radius = 20;
+                b.bounceHeightStr = 600;
+            }
+        });
+    }
+}
+
+class Particle {
+    constructor(x, y, color, speed, size) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        const angle = Math.random() * Math.PI * 2;
+        const vel = Math.random() * speed;
+        this.vx = Math.cos(angle) * vel;
+        this.vy = Math.sin(angle) * vel;
+        this.life = 1.0;
+        this.decay = Math.random() * 1.5 + 0.5;
+        this.size = size;
+    }
+    update(dt) {
+        this.vy += GRAVITY * 10 * dt;
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        this.life -= this.decay * dt;
+    }
+    draw(ctx) {
+        ctx.globalAlpha = Math.max(0, this.life);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+// Spawning logic
+function spawnWave() {
+    hudWave.innerText = currentWave;
+    
+    // Cada 10 niveles, aparece el BOSS
+    if (currentWave % 10 === 0) {
+        balls.push(new Boss(currentWave));
+        return;
+    }
+
+    // Formula for ball counts and health
+    const numBalls = Math.min(1 + Math.floor(currentWave / 2), 4);
+    
+    for (let i = 0; i < numBalls; i++) {
+        // Determine size class based on wave
+        let tier = 3; 
+        if(currentWave < 3) tier = 1;
+        else if (currentWave < 5) tier = 2;
+        else tier = Math.random() > 0.5 ? 3 : 2;
+
+        const hp = Math.floor(10 + currentWave * 8 * (tier * 0.5));
+        
+        let r, bounce;
+        if(tier === 1) { r = 20; bounce = 600; } // Incrementado un 20% (de 500 a 600)
+        else if (tier === 2) { r = 40; bounce = 650; }
+        else { r = 60; bounce = 750; }
+
+        const x = Math.random() * (W - r*2) + r;
+        const y = r + 20; // Spawn near top
+        const vx = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 100 + 50);
+
+        balls.push(new Ball(x, y, r, hp, vx, bounce));
+    }
+
+    // Probabilidad del 50% de que salga una bola misteriosa
+    if (Math.random() < 0.5) {
+        const hp = 10 + currentWave * 10;
+        balls.push(new MysteryBall(W/2, 50, 40, hp, (Math.random() > 0.5 ? 150 : -150), 650));
+    }
+}
+
+function splitBall(ball) {
+    // Excepción si la bola es un Jefe
+    if (ball.isBoss) {
+        score += ball.maxHealth * 50;
+        createExplosion(ball.x, ball.y, '#ff4400', 100);
+        return; // El jefe no se divide
+    }
+    // Excepción si la bola es una misteriosa
+    if (ball.isMystery) {
+        score += ball.maxHealth * 10;
+        createExplosion(ball.x, ball.y, '#fff000', 50);
+        dropPowerUp(ball.x, ball.y);
+        return; // No se divide, suelta el power up
+    }
+
+    // If ball is big enough, split into two smaller ones
+    score += ball.maxHealth * 10;
+    hudScore.innerText = score;
+    
+    createExplosion(ball.x, ball.y, ball.color, ball.radius / 2);
+
+    if (ball.radius > 25) {
+        const newRadius = ball.radius * 0.6;
+        const newHp = Math.max(1, Math.floor(ball.maxHealth * 0.4));
+        const bounce = ball.bounceHeightStr * 0.85;
+
+        let b1 = new Ball(ball.x, ball.y, newRadius, newHp, -150, bounce);
+        let b2 = new Ball(ball.x, ball.y, newRadius, newHp, 150, bounce);
+        
+        // Las pelotas salen impulsadas hacia arriba al explotar la grande
+        b1.vy = -500;
+        b2.vy = -500;
+
+        balls.push(b1);
+        balls.push(b2);
+    }
+}
+
+function createExplosion(x, y, color, count) {
+    for (let i = 0; i < count; i++) {
+        particles.push(new Particle(x, y, color, 300, Math.random() * 4 + 2));
+    }
+}
+
+// Input Handling
+let isDragging = false;
+const keys = { left: false, right: false };
+
+window.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === 'a' || e.key === 'ArrowLeft') keys.left = true;
+    if (key === 'd' || e.key === 'ArrowRight') keys.right = true;
+    
+    // Toggle Sandbox menu con la tecla P
+    if (key === 'p') {
+        if (GAME_STATE === 'PLAYING') {
+            openSandbox();
+        } else if (GAME_STATE === 'SANDBOX') {
+            closeSandbox();
+        }
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    const key = e.key.toLowerCase();
+    if (key === 'a' || e.key === 'ArrowLeft') keys.left = false;
+    if (key === 'd' || e.key === 'ArrowRight') keys.right = false;
+});
+
+function handleInteractionStart(e) {
+    if (GAME_STATE !== 'PLAYING') return;
+    isDragging = true;
+    updatePlayerTarget(e);
+}
+
+function handleInteractionMove(e) {
+    if (!isDragging || GAME_STATE !== 'PLAYING') return;
+    updatePlayerTarget(e);
+}
+
+function handleInteractionEnd() {
+    isDragging = false;
+}
+
+function updatePlayerTarget(e) {
+    let clientX = e.clientX;
+    if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+    }
+    // Clamp target to screen
+    player.targetX = Math.max(player.width/2, Math.min(clientX, W - player.width/2));
+}
+
+// Event Listeners for Game
+canvas.addEventListener('mousedown', handleInteractionStart);
+canvas.addEventListener('mousemove', handleInteractionMove);
+window.addEventListener('mouseup', handleInteractionEnd);
+
+canvas.addEventListener('touchstart', handleInteractionStart, {passive: true});
+canvas.addEventListener('touchmove', handleInteractionMove, {passive: true});
+window.addEventListener('touchend', handleInteractionEnd);
+
+// Game Loop Functions
+function fireBullets(currentTime) {
+    let currentFireRate = player.fireRate;
+    
+    // Aplica efecto de la ametralladora x30 si el power up está activo
+    if (machineGunTimer > 0) currentFireRate *= 30;
+
+    const fireInterval = 1000 / currentFireRate;
+    if (currentTime - player.lastShotTime > fireInterval) {
+        
+        let startAngle = 0;
+        let spread = 0.15; // radians
+
+        if (player.multishot === 1) {
+            bullets.push(new Bullet(player.x, player.y - player.height/2, 0, player.damage));
+        } else if (player.multishot % 2 === 0) {
+            // Even number of bullets
+            const offset = spread / 2;
+            for(let i=0; i < player.multishot; i++){
+                let angle = -offset - (Math.floor(player.multishot/2)-1)*spread + i*spread;
+                bullets.push(new Bullet(player.x, player.y - player.height/2, angle, player.damage));
+            }
+        } else {
+            // Odd number
+            const half = Math.floor(player.multishot / 2);
+            for(let i = -half; i <= half; i++){
+                bullets.push(new Bullet(player.x, player.y - player.height/2, i * spread, player.damage));
+            }
+        }
+
+        player.lastShotTime = currentTime;
+    }
+}
+
+function checkCollisions() {
+    // Bullets vs Balls
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
+        for (let j = balls.length - 1; j >= 0; j--) {
+            let ball = balls[j];
+            
+            // Distance check
+            let dx = b.x - ball.x;
+            let dy = b.y - ball.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist < ball.radius + b.radius) {
+                // Hit
+                ball.health -= b.damage;
+                ball.hitTimer = 0.05; // 50ms flash
+                b.markedForDeletion = true;
+                
+                createExplosion(b.x, b.y, ball.color, 3);
+
+                if (ball.health <= 0) {
+                    splitBall(ball);
+                    balls.splice(j, 1);
+                }
+                break; // Bullet is destroyed, stop checking other balls
+            }
+        }
+    }
+
+    // Player vs Balls (Game Over)
+    for (let i = 0; i < balls.length; i++) {
+        let ball = balls[i];
+        
+        // Rect vs Circle collision approximation
+        let testX = ball.x;
+        let testY = ball.y;
+
+        let rx = player.x - player.width/2;
+        let ry = player.y - player.height/2;
+
+        if (ball.x < rx) testX = rx; 
+        else if (ball.x > rx + player.width) testX = rx + player.width;
+
+        if (ball.y < ry) testY = ry; 
+        else if (ball.y > ry + player.height) testY = ry + player.height;
+
+        let distX = ball.x - testX;
+        let distY = ball.y - testY;
+        let distance = Math.sqrt((distX*distX) + (distY*distY));
+
+        if (distance <= ball.radius) {
+            triggerGameOver();
+            return;
+        }
+    }
+
+    // Player vs PowerUps
+    for (let i = powerUps.length - 1; i >= 0; i--) {
+        let pu = powerUps[i];
+        let distX = pu.x - player.x;
+        let distY = pu.y - player.y;
+        if (Math.sqrt(distX*distX + distY*distY) < pu.radius + Math.max(player.width, player.height)/2) {
+            activatePowerUp(pu.type);
+            pu.markedForDeletion = true;
+        }
+    }
+}
+
+function update(dt, time) {
+    if (GAME_STATE !== 'PLAYING') return;
+
+    // Movimiento por teclado
+    const moveSpeed = 1000; // Velocidad de movimiento con teclado
+    if (keys.left) player.targetX -= moveSpeed * dt;
+    if (keys.right) player.targetX += moveSpeed * dt;
+
+    // Limitar targetX para que no se salga de la pantalla al usar el teclado
+    player.targetX = Math.max(player.width/2, Math.min(player.targetX, W - player.width/2));
+
+    // Smooth Player Movement (Lerp)
+    player.x += (player.targetX - player.x) * 20 * dt;
+
+    // Timers
+    if (freezeTimer > 0) freezeTimer -= dt;
+    if (machineGunTimer > 0) machineGunTimer -= dt;
+
+    // Fire
+    fireBullets(time);
+
+    // Update Entities
+    bullets.forEach(b => b.update(dt));
+    balls.forEach(b => b.update(dt));
+    particles.forEach(p => p.update(dt));
+
+    // Collisions
+    checkCollisions();
+
+    // Clean up
+    bullets = bullets.filter(b => !b.markedForDeletion);
+    particles = particles.filter(p => p.life > 0);
+    powerUps = powerUps.filter(p => !p.markedForDeletion);
+    powerUps.forEach(p => p.update(dt));
+
+    // Check Wave End
+    if (balls.length === 0) {
+        GAME_STATE = 'UPGRADE';
+        // 25% de probabilidad de tener 2 mejoras, 75% de tener 1 mejora
+        upgradesRemaining = Math.random() <= 0.25 ? 2 : 1; 
+        const p = document.querySelector('#upgrade-menu p');
+        if (p) p.innerText = `Mejoras restantes: ${upgradesRemaining}`;
+        uiUpgradeMenu.classList.remove('hidden');
+    }
+}
+
+function drawPlayer(ctx) {
+    ctx.save();
+    ctx.translate(player.x, player.y);
+    
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = player.color;
+    
+    // Draw Cannon Base (Tech style)
+    ctx.fillStyle = player.color;
+    ctx.beginPath();
+    ctx.moveTo(0, -player.height/2); // Top tip
+    ctx.lineTo(player.width/2, player.height/2); // Bottom right
+    ctx.lineTo(-player.width/2, player.height/2); // Bottom left
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner dark detail
+    ctx.fillStyle = '#050510';
+    ctx.shadowBlur = 0;
+    ctx.beginPath();
+    ctx.moveTo(0, -player.height/4);
+    ctx.lineTo(player.width/4, player.height/2);
+    ctx.lineTo(-player.width/4, player.height/2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+}
+
+function draw() {
+    // Clear with slight trail effect
+    ctx.fillStyle = 'rgba(5, 5, 16, 0.4)';
+    ctx.fillRect(0, 0, W, H);
+    
+    ctx.globalCompositeOperation = 'lighter';
+    particles.forEach(p => p.draw(ctx));
+    ctx.globalCompositeOperation = 'source-over';
+    
+    bullets.forEach(b => b.draw(ctx));
+    balls.forEach(b => b.draw(ctx));
+    powerUps.forEach(p => p.draw(ctx));
+    
+    if(GAME_STATE !== 'GAMEOVER') {
+        drawPlayer(ctx);
+    }
+}
+
+function loop(time) {
+    let dt = (time - lastTime) / 1000;
+    lastTime = time;
+    
+    // Cap dt to prevent huge jumps if tab is inactive
+    if (dt > 0.1) dt = 0.1;
+
+    update(dt, time);
+    draw();
+
+    requestAnimationFrame(loop);
+}
+
+// Game Flow Controls
+function resetGame() {
+    score = 0;
+    currentWave = 1;
+    balls = [];
+    bullets = [];
+    particles = [];
+    powerUps = [];
+    freezeTimer = 0;
+    machineGunTimer = 0;
+    
+    player.x = W / 2;
+    player.targetX = W / 2;
+    player.damage = 1;
+    player.fireRate = 4;
+    player.multishot = 1;
+    
+    hudScore.innerText = score;
+}
+
+function startGame() {
+    resetGame();
+    uiMainMenu.classList.add('hidden');
+    uiGameOver.classList.add('hidden');
+    uiHud.classList.remove('hidden');
+    spawnWave();
+    GAME_STATE = 'PLAYING';
+}
+
+function triggerGameOver() {
+    GAME_STATE = 'GAMEOVER';
+    finalWave.innerText = currentWave;
+    uiHud.classList.add('hidden');
+    uiGameOver.classList.remove('hidden');
+    createExplosion(player.x, player.y, player.color, 50);
+}
+
+function applyUpgrade(type) {
+    if (type === 'fireRate') {
+        player.fireRate += 2;
+    } else if (type === 'multishot') {
+        player.multishot += 1;
+    } else if (type === 'damage') {
+        player.damage += 0.5;
+    }
+    
+    upgradesRemaining--;
+
+    // Si aún nos quedan puntos, actualizamos el texto y no empezamos la oleada
+    if (upgradesRemaining > 0) {
+        const p = document.querySelector('#upgrade-menu p');
+        if (p) p.innerText = `Mejoras restantes: ${upgradesRemaining}`;
+        return; 
+    }
+    
+    uiUpgradeMenu.classList.add('hidden');
+    currentWave++;
+    spawnWave();
+    
+    // Slight delay before playing to prevent accidental drag
+    setTimeout(() => {
+        GAME_STATE = 'PLAYING';
+    }, 100);
+}
+
+// Bind UI Buttons
+btnStart.addEventListener('click', startGame);
+btnRestart.addEventListener('click', startGame);
+btnUpgrades.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        const type = btn.closest('button').dataset.type;
+        applyUpgrade(type);
+    });
+});
+
+// Lógica del Sandbox
+function updateSandboxLevels() {
+    // Calculamos el nivel actual según las estadísticas base del cañón
+    sbInputFire.value = Math.floor((player.fireRate - 4) / 2);
+    sbInputMulti.value = player.multishot - 1;
+    sbInputDmg.value = Math.floor((player.damage - 1) / 0.5);
+}
+
+function openSandbox() {
+    GAME_STATE = 'SANDBOX'; // Esto pausa las físicas automáticamente
+    sbWaveInput.value = currentWave;
+    updateSandboxLevels();
+    uiSandbox.classList.remove('hidden');
+}
+
+function closeSandbox() {
+    const newWave = parseInt(sbWaveInput.value) || currentWave;
+    
+    // Aplicamos los niveles introducidos en los campos de texto
+    player.fireRate = 4 + (parseInt(sbInputFire.value) || 0) * 2;
+    player.multishot = 1 + (parseInt(sbInputMulti.value) || 0);
+    player.damage = 1 + (parseInt(sbInputDmg.value) || 0) * 0.5;
+
+    // Si elegimos una oleada distinta, borramos los enemigos actuales y la generamos
+    if (newWave !== currentWave) {
+        currentWave = Math.max(1, newWave);
+        balls = [];
+        powerUps = [];
+        spawnWave();
+    }
+    
+    uiSandbox.classList.add('hidden');
+    // Timeout para evitar que se arrastre el cañón si soltamos el dedo en un dispositivo táctil
+    setTimeout(() => {
+        GAME_STATE = 'PLAYING';
+    }, 100);
+}
+
+// Botones del Sandbox
+sbDoneBtn.addEventListener('click', closeSandbox);
+
+// Start loop
+requestAnimationFrame((t) => {
+    lastTime = t;
+    loop(t);
+});
+
+</script>
+</body>
+</html>
